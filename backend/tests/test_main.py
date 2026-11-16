@@ -42,6 +42,17 @@ def test_root_serves_the_built_single_page_application(tmp_path):
     assert response.status_code == 200
 
 
+def test_root_response_body_is_the_placeholder_home_page(tmp_path):
+    client = TestClient(create_app(build_settings(write_placeholder_spa(tmp_path))))
+
+    response = client.get("/")
+
+    assert "Fuzzy Chain Saw" in response.text, (
+        "The root URL must hand the browser the placeholder home page itself, "
+        "not an empty 200"
+    )
+
+
 def test_api_health_still_answers_when_the_spa_is_mounted(tmp_path):
     client = TestClient(create_app(build_settings(write_placeholder_spa(tmp_path))))
 

@@ -20,4 +20,15 @@ describe('HomePage', () => {
     expect(heading.textContent).toContain('Fuzzy Chain Saw')
     expect(consoleError).not.toHaveBeenCalled()
   })
+
+  it('states the page task in exactly one heading', async () => {
+    const { default: HomePage } = await vi.importActual('./HomePage')
+
+    render(<HomePage />)
+
+    const headings = screen.getAllByRole('heading')
+
+    expect(headings).toHaveLength(1)
+    expect(headings[0].tagName).toBe('H1')
+  })
 })
