@@ -1,0 +1,13 @@
+# All runtime and test dependencies of the repository in one place:
+# the persona engine (no runtime dependencies) plus the backend's.
+fastapi
+uvicorn
+pydantic-settings
+python-dotenv
+httpx
+sqlalchemy
+alembic
+psycopg
+pytest
+pytest-cov
+pyflakes

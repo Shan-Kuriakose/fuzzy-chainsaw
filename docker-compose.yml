@@ -1,4 +1,18 @@
 services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: fuzzy_chain_saw
+      POSTGRES_DB: fuzzy_chain_saw
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the .env or the deployment environment}
+    volumes:
+      - dataset-configurations-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fuzzy_chain_saw"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   app:
     image: ${APP_IMAGE:-fuzzy-chain-saw:local}
     build:
@@ -10,4 +24,11 @@ services:
     environment:
       APP_NAME: ${APP_NAME:-fuzzy-chain-saw}
       ENVIRONMENT: ${ENVIRONMENT:-local}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in the .env or the deployment environment, e.g. postgresql+psycopg://fuzzy_chain_saw:<password>@db/fuzzy_chain_saw}
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  dataset-configurations-data:

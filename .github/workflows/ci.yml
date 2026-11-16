@@ -47,9 +47,9 @@ jobs:
 
       - name: Run the backend suite under the 80% coverage gate
         run: |
-          pip install --no-cache-dir -e "./backend[test]"
-          pytest backend/tests --cov=app --cov-report=term-missing \
-            --cov-fail-under=80 -p no:cacheprovider
+          pip install --no-cache-dir -e "./backend[test]" -e .
+          pytest backend/tests tests --cov=app --cov=persona_engine \
+            --cov-report=term-missing --cov-fail-under=80 -p no:cacheprovider
 
       - name: Run the dataset-engine suite under the 80% coverage gate
         run: |
