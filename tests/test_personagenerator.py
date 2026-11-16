@@ -102,3 +102,22 @@ def test_invalid_ranges_raise_loudly(inverted_field):
 
     with pytest.raises(ValueError):
         GenerationConfig(**{inverted_field: invalid_bounds[inverted_field]})
+
+
+def test_weighted_dataset_generation_is_deterministic_across_two_same_seed_runs():
+    from persona_engine import GenerationConfig, PersonaGenerator
+    from persona_engine.distributions import CategoryDistribution, NumericDistribution
+
+    config = GenerationConfig(
+        age_distribution=NumericDistribution(((18, 29, 5.0), (30, 39, 2.0))),
+        gender_distribution=CategoryDistribution({"Female": 3.0, "Male": 1.0}),
+    )
+    generator = PersonaGenerator()
+
+    first = generator.generate_dataset(config, count=40, seed=365)
+    second = generator.generate_dataset(config, count=40, seed=365)
+
+    assert first.personas == second.personas
+    for persona in first.personas:
+        assert 18 <= persona.age <= 39
+        assert persona.gender in ("Female", "Male")
