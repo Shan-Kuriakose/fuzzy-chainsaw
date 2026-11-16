@@ -42,10 +42,13 @@ def _client_over(tmp_path):
     from app.main import create_app
     from app.settings import Settings
 
+    forbidden_values_path = tmp_path / "forbidden-values.json"
+    forbidden_values_path.write_text("[]", encoding="utf-8")
     settings = Settings(
         app_name="fuzzy-chain-saw",
         environment="test",
         database_url=f"sqlite:///{tmp_path / 'dataset-configurations.db'}",
+        forbidden_values_path=forbidden_values_path,
     )
     return TestClient(create_app(settings=settings))
 
@@ -205,3 +208,18 @@ def test_reproduce_returns_the_exact_saved_records_after_a_failure_was_surfaced(
     assert rerun_hand_off.status_code == 200, rerun_hand_off.text
     assert rerun_hand_off.json() == first_hand_off.json()
     assert len(rerun_hand_off.json()["personas"]) == SAVED_COUNT
+
+
+def test_screenings_endpoint_lists_evidence_per_team(tmp_path):
+    client = _client_over(tmp_path)
+    save_response = _save_configuration(client)
+    assert save_response.status_code == 201, save_response.text
+
+    listing_response = client.get(
+        f"/api/teams/{ATLAS_TEAM}/identity-safety-screenings"
+    )
+
+    assert listing_response.status_code == 200, listing_response.text
+    screenings = listing_response.json()
+    assert [entry["name"] for entry in screenings] == [SAVED_NAME]
+    assert [entry["passed"] for entry in screenings] == [True]
