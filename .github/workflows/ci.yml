@@ -25,7 +25,7 @@ jobs:
       - name: Lint the python code with pyflakes
         run: |
           pip install pyflakes
-          pyflakes backend/app backend/tests
+          pyflakes backend/app backend/tests src/persona_engine tests
 
       - uses: actions/setup-node@v4
         with:
@@ -49,6 +49,12 @@ jobs:
         run: |
           pip install --no-cache-dir -e "./backend[test]"
           pytest backend/tests --cov=app --cov-report=term-missing \
+            --cov-fail-under=80 -p no:cacheprovider
+
+      - name: Run the dataset-engine suite under the 80% coverage gate
+        run: |
+          pip install --no-cache-dir -e ".[dev]"
+          pytest tests --cov=persona_engine --cov-report=term-missing \
             --cov-fail-under=80 -p no:cacheprovider
 
       - uses: actions/setup-node@v4
