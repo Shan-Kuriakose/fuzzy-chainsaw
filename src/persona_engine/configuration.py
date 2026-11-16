@@ -1,6 +1,6 @@
 """GenerationConfig: the configured demographic ranges for persona generation."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Sequence
 
 
