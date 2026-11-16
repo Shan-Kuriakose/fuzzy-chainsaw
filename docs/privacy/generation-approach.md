@@ -1,5 +1,5 @@
 ---
-document_version: 1.0.0
+document_version: 1.0.1
 status: Submitted for privacy review - pending sign-off
 ---
 
@@ -52,7 +52,7 @@ attribute has any other source.
 Details:
 
 - **name** — the first and last name values come only from two fixed lists
-  ("pools") committed with the engine: 53 first names and 47 last names.
+  ("pools") committed with the engine: 54 first names and 48 last names.
   The pools are synthetic by construction: they are deliberately chosen
   common names spanning diverse cultural origins, and no value identifies
   any specific person. The pool file carries the repository's
@@ -182,6 +182,7 @@ Never-contains criteria — every one of them absolute, testable statements:
 | Version | Date | Change |
 | --- | --- | --- |
 | 1.0.0 | 2026-11-16 | Initial packet submitted for privacy review. |
+| 1.0.1 | 2026-11-16 | Corrected the committed name-pool counts to 54 first names and 48 last names. |
 
 ## Approval record
 
