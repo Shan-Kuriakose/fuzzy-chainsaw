@@ -31,6 +31,14 @@ export interface SaveDatasetConfigurationPayload {
   configuration: DatasetConfigurationBoundaries
 }
 
+// The bounds the API contract declares; mirrors the storage columns the
+// backend refuses a request beyond, so the form refuses them before
+// sending instead of delivering an unexplained response.
+export const MAXIMUM_DATASET_RECORDS = 10_000
+export const MAXIMUM_SEED = 2_147_483_647
+export const MAXIMUM_TEAM_LENGTH = 64
+export const MAXIMUM_NAME_LENGTH = 255
+
 async function assertSucceeded(response: Response): Promise<Response> {
   if (!response.ok) {
     throw new Error(

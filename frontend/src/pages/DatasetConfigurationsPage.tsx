@@ -2,6 +2,10 @@ import { useState, type FormEvent } from 'react'
 
 import {
   listDatasetConfigurations,
+  MAXIMUM_DATASET_RECORDS,
+  MAXIMUM_NAME_LENGTH,
+  MAXIMUM_SEED,
+  MAXIMUM_TEAM_LENGTH,
   reproduceDatasetConfiguration,
   saveDatasetConfiguration,
   type DatasetConfiguration,
@@ -17,21 +21,35 @@ function commaSeparated(raw: string): string[] {
     .filter((category) => category.length > 0)
 }
 
-function boundedInteger(raw: string, minimum: number): number {
+function boundedInteger(raw: string, minimum: number, maximum: number): number {
   const parsed = Number.parseInt(raw, 10)
-  if (Number.isNaN(parsed) || parsed < minimum) {
-    throw new Error(`${raw} is not a whole number of at least ${minimum}`)
+  const withinBounds =
+    !Number.isNaN(parsed) && parsed >= minimum && parsed <= maximum
+  if (!withinBounds) {
+    throw new Error(
+      `${raw} is not a whole number between ${minimum} and ${maximum}`,
+    )
   }
   return parsed
 }
 
+// Ceilings of the attributes a configuration bounds; a member lives no
+// longer than these, and synthetic incomes stay within one order of the
+// configured default range.
+const MAXIMUM_AGE = 130
+const MAXIMUM_INCOME = 10_000_000
+
 function configurationFrom(
   form: DatasetConfigurationForm,
 ): DatasetConfigurationBoundaries {
-  const ageMinimum = boundedInteger(form.ageMinimum(), 1)
-  const ageMaximum = boundedInteger(form.ageMaximum(), ageMinimum + 1)
-  const incomeMinimum = boundedInteger(form.incomeMinimum(), 1)
-  const incomeMaximum = boundedInteger(form.incomeMaximum(), incomeMinimum + 1)
+  const ageMinimum = boundedInteger(form.ageMinimum(), 1, MAXIMUM_AGE)
+  const ageMaximum = boundedInteger(form.ageMaximum(), ageMinimum + 1, MAXIMUM_AGE)
+  const incomeMinimum = boundedInteger(form.incomeMinimum(), 1, MAXIMUM_INCOME)
+  const incomeMaximum = boundedInteger(
+    form.incomeMaximum(),
+    incomeMinimum + 1,
+    MAXIMUM_INCOME,
+  )
   const genders = commaSeparated(form.genders())
   const geographies = commaSeparated(form.geographies())
   if (genders.length === 0 || geographies.length === 0) {
@@ -91,13 +109,27 @@ export default function DatasetConfigurationsPage() {
     setSaved(await listDatasetConfigurations(theTeam))
   }
 
+  function refusalOfSaveRequest(): string | null {
+    if (team.length === 0) return 'A team is required'
+    if (team.length > MAXIMUM_TEAM_LENGTH) {
+      return `The team name is longer than ${MAXIMUM_TEAM_LENGTH} characters, which the API does not accept`
+    }
+    if (name.length === 0) return 'A configuration name is required'
+    if (name.length > MAXIMUM_NAME_LENGTH) {
+      return `The configuration name is longer than ${MAXIMUM_NAME_LENGTH} characters, which the API does not accept`
+    }
+    return null
+  }
+
   async function save(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault()
     try {
+      const refused = refusalOfSaveRequest()
+      if (refused !== null) throw new Error(refused)
       const payload: SaveDatasetConfigurationPayload = {
         name,
-        count: boundedInteger(count, 0),
-        seed: boundedInteger(seed, 0),
+        count: boundedInteger(count, 0, MAXIMUM_DATASET_RECORDS),
+        seed: boundedInteger(seed, 0, MAXIMUM_SEED),
         configuration: configurationFrom(form),
       }
       await saveDatasetConfiguration(team, payload)
@@ -171,7 +203,6 @@ export default function DatasetConfigurationsPage() {
             <input
               id="configuration-seed"
               type="number"
-              min="0"
               value={seed}
               onChange={(enter) => setSeed(enter.target.value)}
               className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-1"
@@ -181,10 +212,17 @@ export default function DatasetConfigurationsPage() {
             <label htmlFor="configuration-count" className="block font-medium">
               Number of records
             </label>
+            <p
+              id="configuration-count-hint"
+              className="text-sm text-slate-600"
+            >
+              Up to {MAXIMUM_DATASET_RECORDS.toLocaleString()} records per
+              configuration
+            </p>
             <input
               id="configuration-count"
               type="number"
-              min="0"
+              aria-describedby="configuration-count-hint"
               value={count}
               onChange={(enter) => setCount(enter.target.value)}
               className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-1"

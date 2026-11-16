@@ -5,7 +5,9 @@ listed and reproducible by anyone acting for that team, and is invisible
 from other teams' scope.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, Field
 
 from app.dataset_configurations.service import (
@@ -14,6 +16,11 @@ from app.dataset_configurations.service import (
     InvalidDatasetConfiguration,
 )
 from app.settings import Settings
+from app.storage.models import (
+    MAXIMUM_NAME_LENGTH,
+    MAXIMUM_STORED_INTEGER,
+    MAXIMUM_TEAM_LENGTH,
+)
 from app.storage.repository import DuplicateDatasetConfiguration
 
 SAVED_STATUS_CODE = 201
@@ -21,13 +28,26 @@ CONFLICT_STATUS_CODE = 409
 NOT_FOUND_STATUS_CODE = 404
 UNPROCESSABLE_STATUS_CODE = 422
 
+# The largest dataset one synchronous save generates and stores. The
+# engine can draw millions of records in seconds, but a save holds the
+# full manifest in one request and one row, so requests beyond a
+# thousands-scale regression run are refused instead of wedging the
+# worker and ballooning the store.
+MAXIMUM_DATASET_RECORDS = 10_000
+
+# The team the request acts for is stored, so it is held to the column
+# width the store declares for it.
+TeamPath = Annotated[
+    str, Path(min_length=1, max_length=MAXIMUM_TEAM_LENGTH)
+]
+
 
 class SaveDatasetConfigurationRequest(BaseModel):
-    """The payload of a save request."""
+    """The payload of a save request, bounded by the store's columns."""
 
-    name: str = Field(min_length=1)
-    count: int = Field(ge=0)
-    seed: int
+    name: str = Field(min_length=1, max_length=MAXIMUM_NAME_LENGTH)
+    count: int = Field(ge=0, le=MAXIMUM_DATASET_RECORDS)
+    seed: int = Field(ge=0, le=MAXIMUM_STORED_INTEGER)
     configuration: dict
 
 
@@ -48,7 +68,7 @@ def build_dataset_configurations_router(settings: Settings) -> APIRouter:
         status_code=SAVED_STATUS_CODE,
     )
     def save_configuration(
-        team: str,
+        team: TeamPath,
         request: SaveDatasetConfigurationRequest,
         service: DatasetConfigurationsService = Depends(the_service),
     ) -> dict:
@@ -64,7 +84,7 @@ def build_dataset_configurations_router(settings: Settings) -> APIRouter:
 
     @router.get("/teams/{team}/dataset-configurations")
     def list_dataset_configurations(
-        team: str,
+        team: TeamPath,
         service: DatasetConfigurationsService = Depends(the_service),
     ) -> list[dict]:
         return service.list_in_team(team)
@@ -80,7 +100,7 @@ def _read_routes_of(
 
     @router.get("/teams/{team}/dataset-configurations/{name}/reproduce")
     def reproduce_dataset_configuration(
-        team: str,
+        team: TeamPath,
         name: str,
         service: DatasetConfigurationsService = Depends(the_service),
     ) -> dict:
@@ -93,7 +113,7 @@ def _read_routes_of(
 
     @router.get("/teams/{team}/dataset-configurations/{name}")
     def read_dataset_configuration(
-        team: str,
+        team: TeamPath,
         name: str,
         service: DatasetConfigurationsService = Depends(the_service),
     ) -> dict:

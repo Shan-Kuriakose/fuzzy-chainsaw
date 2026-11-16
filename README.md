@@ -93,6 +93,16 @@ team, and invisible from other teams.
 | `GET` | `/api/teams/{team}/dataset-configurations/{name}` | Retrieve one saved configuration, `404` when unsaved |
 | `GET` | `/api/teams/{team}/dataset-configurations/{name}/reproduce` | Regenerate the exact records, `404` when unsaved |
 
+Save requests are bounded at the API, and the bounds match the storage
+columns so a value accepted in one deployment cannot fail in another: a
+`seed` is a whole number from 0 to 2^31-1, a `count` is a whole number
+from 0 up to a hoisted maximum of 10,000 records (the largest dataset one
+synchronous save generates and stores; the engine can draw more, but a
+save holds the whole manifest in one request and one row), and a `name`
+is at most 255 characters. A `team` in the URL is stored too, so it is at
+most 64 characters. A save beyond any bound is refused with an explained
+`422`, never stored half of it.
+
 Team scoping is request-supplied, without authentication; real membership
 and authentication are deferred concerns. The storage port
 (`backend/app/storage/repository.py`) is the seam to introduce them.

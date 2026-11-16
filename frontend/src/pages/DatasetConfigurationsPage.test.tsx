@@ -209,4 +209,34 @@ describe('DatasetConfigurationsPage', () => {
     expect(screen.getByText(/At least one gender/)).toBeInTheDocument()
     expect(fetchCalls).toHaveLength(0)
   })
+
+  it('announces a record count above the maximum instead of sending it', async () => {
+    respond = () => {
+      throw new Error('no request should reach the backend')
+    }
+    render(<DatasetConfigurationsPage />)
+
+    configure(ATLAS_TEAM, SAVED_NAME)
+    typeInto('Number of records', '999999999')
+    click('Save configuration')
+
+    expect(
+      await screen.findByText(/not a whole number between 0 and/),
+    ).toBeInTheDocument()
+    expect(fetchCalls).toHaveLength(0)
+  })
+
+  it('announces a team name longer than the API accepts instead of sending it', async () => {
+    respond = () => {
+      throw new Error('no request should reach the backend')
+    }
+    render(<DatasetConfigurationsPage />)
+
+    typeInto('Team', 't'.repeat(65))
+    typeInto('Configuration name', SAVED_NAME)
+    click('Save configuration')
+
+    expect(screen.getByText(/longer than 64 characters/)).toBeInTheDocument()
+    expect(fetchCalls).toHaveLength(0)
+  })
 })

@@ -9,6 +9,13 @@ failed during a replay.
 import json
 import sqlite3
 
+from app.storage.models import (
+    MAXIMUM_NAME_LENGTH,
+    MAXIMUM_STORED_INTEGER,
+    MAXIMUM_TEAM_LENGTH,
+)
+from app.routes.dataset_configurations import MAXIMUM_DATASET_RECORDS
+
 ATLAS_TEAM = "atlas"
 
 SAVED_NAME = "atlas-baseline"
@@ -36,7 +43,7 @@ def _client_over(tmp_path):
     return TestClient(create_app(settings=settings))
 
 
-def _save_configuration(client, **overrides):
+def _saved_payload(**overrides):
     payload = {
         "name": SAVED_NAME,
         "count": SAVED_COUNT,
@@ -44,8 +51,13 @@ def _save_configuration(client, **overrides):
         "configuration": SAVED_CONFIGURATION,
     }
     payload.update(overrides)
+    return payload
+
+
+def _save_configuration(client, **overrides):
     return client.put(
-        f"/api/teams/{ATLAS_TEAM}/dataset-configurations", json=payload
+        f"/api/teams/{ATLAS_TEAM}/dataset-configurations",
+        json=_saved_payload(**overrides),
     )
 
 
@@ -136,3 +148,44 @@ def test_reproducing_a_dataset_of_an_unsupported_manifest_version_is_refused(
 
     assert reproduction.status_code == 409, reproduction.text
     assert "manifest version" in reproduction.text, reproduction.text
+
+
+def test_saving_a_seed_wider_than_the_store_accepts_is_refused(tmp_path):
+    client = _client_over(tmp_path)
+
+    refused_save = _save_configuration(client, seed=MAXIMUM_STORED_INTEGER + 1)
+
+    assert refused_save.status_code == 422, refused_save.text
+    assert "seed" in refused_save.text, refused_save.text
+
+
+def test_saving_a_team_longer_than_the_store_accepts_is_refused(tmp_path):
+    client = _client_over(tmp_path)
+    oversized_team = "t" * (MAXIMUM_TEAM_LENGTH + 1)
+
+    refused_save = client.put(
+        f"/api/teams/{oversized_team}/dataset-configurations",
+        json=_saved_payload(),
+    )
+
+    assert refused_save.status_code == 422, refused_save.text
+    assert "team" in refused_save.text, refused_save.text
+
+
+def test_saving_a_name_longer_than_the_store_accepts_is_refused(tmp_path):
+    client = _client_over(tmp_path)
+    oversized_name = "b" * (MAXIMUM_NAME_LENGTH + 1)
+
+    refused_save = _save_configuration(client, name=oversized_name)
+
+    assert refused_save.status_code == 422, refused_save.text
+    assert "name" in refused_save.text, refused_save.text
+
+
+def test_saving_a_count_above_the_hoisted_maximum_is_refused(tmp_path):
+    client = _client_over(tmp_path)
+
+    refused_save = _save_configuration(client, count=MAXIMUM_DATASET_RECORDS + 1)
+
+    assert refused_save.status_code == 422, refused_save.text
+    assert "count" in refused_save.text, refused_save.text
