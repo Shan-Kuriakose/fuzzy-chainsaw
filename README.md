@@ -6,6 +6,13 @@ output resembles sample member data but never references a real member
 identity, because every value is drawn from committed, synthetic pools and
 configured ranges.
 
+## Privacy review documentation
+
+`docs/privacy/generation-approach.md` is the packet our privacy officer
+reviews to approve PHI-free prototyping: how generation works, what each
+attribute is sourced from, what generated output must never contain, and
+which monitoring and verification controls exist (and which are deferred).
+
 ## Engine usage
 
 ```python
