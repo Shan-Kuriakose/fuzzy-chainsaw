@@ -14,6 +14,7 @@ from dataclasses import dataclass, fields
 from persona_engine.configuration import GenerationConfig
 from persona_engine.dataset import GeneratedDataset
 from persona_engine.generator import PersonaGenerator
+from persona_engine.name_screening import refuse_forbidden_name_components
 from persona_engine.persona import Persona
 
 MANIFEST_VERSION = 1
@@ -44,9 +45,14 @@ def dataset_manifest(dataset: GeneratedDataset) -> dict:
     }
 
 
-def to_json_bytes(dataset: GeneratedDataset) -> bytes:
+def to_json_bytes(
+    dataset: GeneratedDataset,
+    *,
+    forbidden_values=None,
+) -> bytes:
     """Emit the canonical JSON encoding of a dataset's manifest."""
 
+    _refuse_forbidden_names(dataset.personas, forbidden_values)
     return json.dumps(
         dataset_manifest(dataset),
         sort_keys=True,
@@ -55,13 +61,18 @@ def to_json_bytes(dataset: GeneratedDataset) -> bytes:
     ).encode("utf-8")
 
 
-def to_csv_bytes(dataset: GeneratedDataset) -> bytes:
+def to_csv_bytes(
+    dataset: GeneratedDataset,
+    *,
+    forbidden_values=None,
+) -> bytes:
     """Emit the CSV records export: a header, then one row per persona.
 
     The header lists Persona's fields, so even a zero-record dataset
     carries the schema. Fields arrive as strings: CSV is typeless.
     """
 
+    _refuse_forbidden_names(dataset.personas, forbidden_values)
     buffer = io.StringIO(newline="")
     writer = csv.writer(buffer)
     writer.writerow(_persona_field_names())
@@ -69,7 +80,11 @@ def to_csv_bytes(dataset: GeneratedDataset) -> bytes:
     return buffer.getvalue().encode("utf-8")
 
 
-def to_json_records_bytes(dataset: GeneratedDataset) -> bytes:
+def to_json_records_bytes(
+    dataset: GeneratedDataset,
+    *,
+    forbidden_values=None,
+) -> bytes:
     """Emit the JSON records export: a bare array of flat persona records.
 
     Unlike `to_json_bytes`, which writes the self-recording manifest,
@@ -77,12 +92,20 @@ def to_json_records_bytes(dataset: GeneratedDataset) -> bytes:
     no seed, configuration or envelope, with the types preserved.
     """
 
+    _refuse_forbidden_names(dataset.personas, forbidden_values)
     records = [persona.to_payload() for persona in dataset.personas]
     return json.dumps(
         records,
         separators=(",", ":"),
         ensure_ascii=True,
     ).encode("utf-8")
+
+
+def _refuse_forbidden_names(personas, forbidden_values) -> None:
+    """Run compliance's screen when the emitting call site supplies it."""
+
+    if forbidden_values is not None:
+        refuse_forbidden_name_components(personas, forbidden_values)
 
 
 def _persona_field_names() -> list[str]:

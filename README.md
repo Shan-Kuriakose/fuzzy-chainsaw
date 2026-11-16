@@ -96,6 +96,57 @@ Two things to know about the schema:
   tools type `age` and `income` as numbers per the header's documented
   schema.
 
+## Name screening
+
+Generated names cannot reference a real member identity by construction:
+every first and last name is drawn from the fixed synthetic pools
+committed in `src/persona_engine/name_pools.py`, and the generator
+combines one pool entry of each, so no name outside
+`FIRST_NAMES x LAST_NAMES` can ever appear in a generated record.
+
+By construction alone is not the whole guarantee, though: compliance
+maintains a periodically updated, non-PHI list of forbidden values — any
+value that, for whatever reason, must never appear in an emitted dataset.
+The screening mechanism is the last gate before bytes leave the engine.
+Every export surface (`to_json_bytes`, `to_csv_bytes`,
+`to_json_records_bytes`) accepts an optional `forbidden_values` argument
+carrying a `ForbiddenValueList`; if a persona's first or last name
+matches a listed value, exactly and case-insensitively, the emission
+raises `ForbiddenNameError` and no bytes are produced.
+
+The list is a plain text file with one value per line, loaded with
+`ForbiddenValueList.from_file`:
+
+```python
+from persona_engine import serialization
+from persona_engine.name_screening import ForbiddenValueList
+
+forbidden = ForbiddenValueList.from_file("compliance-forbidden-values.txt")
+csv_bytes = serialization.to_csv_bytes(dataset, forbidden_values=forbidden)
+```
+
+Three properties of the mechanism matter to a reviewer:
+
+- **The list is never committed to this repository.** It carries
+  real-identity-shaped values by design, so it travels with compliance
+  and is supplied at the emission call site. Nothing in the checkout —
+  source, fixtures or tests — may hold it.
+- **The screen never redraws or substitutes a name.** It refuses or
+  passes, and touches no random source, so a seeded dataset stays a pure
+  function of seed, pools and configuration, and `replay`'s
+  byte-identical contract is untouched.
+- **An updated list can refuse a saved dataset later.** Passing a list
+  updated since the dataset was generated can make its re-emission raise
+  `ForbiddenNameError`. That is the intended, safety-correct outcome:
+  a dataset whose names a new list forbids must fail loudly, never emit
+  silently.
+
+Screening is offered at the emission boundary rather than inside
+generation so keepers of saved manifests can decide when a list update
+applies to re-export; the README emission examples above remain valid
+without a list, and the screen is a deliberate choice the emitting call
+site makes visible.
+
 ## Running the tests
 
 From a clean checkout, with a Python 3.10+ interpreter and no network access
