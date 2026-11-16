@@ -21,3 +21,4 @@ class Settings(BaseSettings):
     app_name: str = Field(min_length=1)
     environment: str = Field(min_length=1)
     spa_directory: Path | None = None
+    database_url: str | None = None

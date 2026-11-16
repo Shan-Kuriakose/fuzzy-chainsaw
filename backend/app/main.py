@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from app.routes.dataset_configurations import build_dataset_configurations_router
 from app.routes.health import health_router
 from app.settings import Settings
 
@@ -24,6 +25,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     application = FastAPI(title=settings.app_name)
     application.include_router(health_router)
+    application.include_router(build_dataset_configurations_router(settings))
     if settings.spa_directory is not None:
         _serve_spa(application, Path(settings.spa_directory))
     return application

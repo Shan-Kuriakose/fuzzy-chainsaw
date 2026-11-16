@@ -7,8 +7,10 @@ RUN npm run build
 
 FROM python:3.12-slim AS runtime
 WORKDIR /srv/app
+COPY pyproject.toml ./
+COPY src/ ./src/
 COPY backend/ ./backend/
-RUN pip install --no-cache-dir ./backend
+RUN pip install --no-cache-dir . ./backend
 COPY --from=frontend-build /build/frontend/dist ./frontend
 ENV SPA_DIRECTORY=/srv/app/frontend
 EXPOSE 8000
