@@ -33,5 +33,9 @@ pip install -e ".[dev]"
 python -m pytest --cov=persona_engine
 ```
 
+The 80% coverage floor from the engineering standard is enforced by
+`fail_under = 80` in the `[tool.coverage.report]` section of
+`pyproject.toml`, so the command above fails when coverage drops below it.
+
 Test-only dependencies (`pytest`, `pytest-cov`) are declared in the `dev`
 extra of `pyproject.toml`.
