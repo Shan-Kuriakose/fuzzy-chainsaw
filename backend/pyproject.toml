@@ -1,0 +1,26 @@
+[project]
+name = "fuzzy-chain-saw-backend"
+version = "0.1.0"
+description = "FastAPI backend of the Fuzzy Chain Saw web application skeleton"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic-settings",
+    "python-dotenv",
+    "httpx",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pyflakes",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]

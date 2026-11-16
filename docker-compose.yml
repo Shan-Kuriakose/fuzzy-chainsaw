@@ -1,0 +1,13 @@
+services:
+  app:
+    image: ${APP_IMAGE:-fuzzy-chain-saw:local}
+    build:
+      context: .
+      tags:
+        - fuzzy-chain-saw:local
+    ports:
+      - "8000:8000"
+    environment:
+      APP_NAME: ${APP_NAME:-fuzzy-chain-saw}
+      ENVIRONMENT: ${ENVIRONMENT:-local}
+    restart: unless-stopped
