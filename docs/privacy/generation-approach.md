@@ -1,5 +1,5 @@
 ---
-document_version: 1.0.1
+document_version: 1.1.0
 status: Submitted for privacy review - pending sign-off
 ---
 
@@ -69,7 +69,12 @@ Details:
   geographies: Region North, Region South, Region East, Region West).
   These are intentionally non-identifying labels; the default geographies
   do not resolve below region level, consistent with Safe Harbor's
-  coarsest-geography expectation.
+  coarsest-geography expectation. The lists themselves, however, are caller
+  content: whoever authors the generation configuration chooses the label
+  strings, and the engine checks only that each list is non-empty and free
+  of duplicates — it does not constrain what the labels say. See the
+  never-contains criteria below for what that configuration channel can
+  and cannot carry.
 
 ## Safeguards
 
@@ -134,10 +139,14 @@ not in assurance claimed for a system under construction:
   anomaly monitoring over generated datasets; what exists is the
   provenance, replay verification and CI described above, which run at
   build and reproduction time, not continuously against a live
-  deployment. Residual risk is additionally bounded by the fact that the
-  generator is the only producer and its sources are fully enumerated in
-  the section above. Establishing production monitoring is explicitly
-  deferred and would be a new, separately-reviewed work item.
+  deployment. Residual risk is bounded as follows: name and numeric
+  values are structurally safe (their sources are fully enumerated and
+  engine-controlled), verified by the replay check; the content of the
+  caller-configured gender and geography labels, by contrast, is not
+  gated by anything described in this section — it is disclosed and
+  weighed in the never-contains criteria below. Establishing production
+  monitoring is explicitly deferred and would be a new,
+  separately-reviewed work item.
 
 ## What generated output must never contain
 
@@ -153,29 +162,54 @@ geography
 income
 ```
 
-Never-contains criteria — every one of them absolute, testable statements:
+Never-contains criteria. Each statement is worded at the strength the
+enforcing control actually supports: structural guarantees are scoped to
+the sources the engine fully controls, and caller-fed channels are
+disclosed as exactly that.
 
-1. Generated values are always drawn from synthetic sources: committed
-   name pools, validated numeric ranges and configured label lists. No
-   value is ever sourced from real member data — never from a production
-   member extract, a de-identified extract, customer records, or any other
-   dataset of real individuals.
-2. Generated values never reference a real member identity. No generated
-   record is, or is derived from, an actual customer. (Names can
-   coincidentally match a real person's name, exactly as a name drawn
-   from a phone book could; the guarantee is that the value came from a
-   synthetic pool, not that collisions are impossible.)
-3. No field beyond the six permitted fields listed above is ever produced:
-   no addresses finer than the configured region labels, no dates of
-   birth (only an age), no contact details of any kind, no account, plan
-   or record numbers, and no free-text of any source.
-4. Generated geographies never resolve finer than the configured region
-   labels; there is no state, city, street or postal code in the source
-   lists, so none can appear in the output.
-5. The ingest side is structurally empty: no API, upload, import or
-   connection through which real member data could enter the generation
-   path exists. There is nothing to protect, filter or audit — there is
-   only nothing to import.
+1. **Name values come only from synthetic pools.** Generated first and
+   last names are always drawn from the two committed synthetic name
+   pools and from nothing else. No name value is ever sourced from a
+   production member extract, a de-identified extract, customer records,
+   or any other dataset of real individuals — the generator is the only
+   producer of names and it draws only from the pools.
+2. **Numeric values come only from the seeded generator over validated
+   bounds.** A generated `age` or `income` is an integer drawn by
+   `rng.randint` between the configured, positively-validated bounds.
+   There is no path by which a generated number is derived from anything
+   but the seeded generator and those bounds.
+3. **Generated values never reference a real member identity.** No
+   generated record is, or is derived from, an actual customer. (Names
+   can coincidentally match a real person's name, exactly as a name
+   drawn from a phone book could; the guarantee is that the value came
+   from a synthetic pool, not that collisions are impossible.)
+4. **No field beyond the six permitted fields is ever produced**: no
+   dates of birth (only an age), no contact details of any kind, no
+   account, plan or record numbers. The persona record has no free-text
+   field for a generator value to land in.
+5. **Gender and geography labels are caller content and are not
+   content-checked by the engine — this is the one channel through which
+   real member data could enter generated output.** A generated gender
+   or geography value is a label string from the configuration, carried
+   verbatim into every row and every CSV/JSON export. The engine
+   validates only that each list is non-empty and free of duplicates; it
+   does not constrain what the labels say. A configuration author who
+   pastes identifying text — a real city, a postal code, a member name,
+   or any value copied from production data — into `genders` or
+   `geographies` puts that text into the generated dataset. The default
+   configuration's label lists carry no such content. Keeping them
+   identifying-free is a governance obligation on configuration authors,
+   not an engine-enforced guarantee, and reviewers should weigh it
+   exactly as they weigh any allowance the engine itself does not
+   check.
+6. **Geography granularity is a caller decision, not an engine
+   property.** With the default configuration, generated geographies
+   resolve no finer than region level — no state, city, street or
+   postal code is present in the default lists. Nothing in the engine
+   prevents a caller from configuring finer or more specific labels;
+   the granularity a dataset has is exactly the granularity its
+   authoring configuration chose, and the manifest records that
+   configuration verbatim so it can be audited per dataset.
 
 ## Revision history
 
@@ -183,6 +217,7 @@ Never-contains criteria — every one of them absolute, testable statements:
 | --- | --- | --- |
 | 1.0.0 | 2026-11-16 | Initial packet submitted for privacy review. |
 | 1.0.1 | 2026-11-16 | Corrected the committed name-pool counts to 54 first names and 48 last names. |
+| 1.1.0 | 2026-11-16 | Never-contains criteria rewritten per privacy-review finding: structural guarantees scoped to name pools and validated numeric ranges; the caller-configured gender/geography label channel disclosed as the one path real member data could take into generated output; the 'structurally empty ingest side' and region-fineness absolutes replaced with accurate descriptions; the monitoring section's residual-risk statement corrected to match. |
 
 ## Approval record
 
