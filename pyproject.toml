@@ -12,5 +12,11 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov"]
 
+[tool.coverage.run]
+source = ["persona_engine"]
+
+[tool.coverage.report]
+fail_under = 80
+
 [tool.setuptools.packages.find]
 where = ["src"]

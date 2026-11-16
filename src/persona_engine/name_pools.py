@@ -1,4 +1,10 @@
-"""Fixed synthetic name pools.
+"""pacca: allow-phi these name pools are synthetic by construction: they are
+fixed, committed lists of common first and last names deliberately chosen to
+span diverse cultural origins, and no value here identifies any specific
+person. Realistic-looking names are required so generated sample member data
+resembles real demographics; the file must carry them to do its job.
+
+Fixed synthetic name pools.
 
 Every generated persona draws its first and last name from these committed
 lists. Generating only from committed pools is what guarantees no generated
