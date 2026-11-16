@@ -115,6 +115,41 @@ The app serves the SPA on port 8000; the `Dataset configurations` page
 (save form, the team's saved list, reproduce to the exact records) is
 reachable from the primary navigation.
 
+## Exporting datasets for dashboards and pipelines
+
+Once a dataset is generated, two exports carry its records to downstream
+tools without any real member identity: every value comes from the
+committed name pools or the configured ranges, the same as generation.
+
+```python
+from persona_engine import GenerationConfig, PersonaGenerator, serialization
+
+config = GenerationConfig(age_range=(25, 45), geographies=("Region Alpha",))
+dataset = PersonaGenerator().generate_dataset(config, count=100, seed=2026)
+
+# CSV: a header row naming Persona's fields, then one row per persona.
+# Fields arrive as strings (CSV is typeless); the header documents the
+# schema downstream tools import against.
+csv_bytes = serialization.to_csv_bytes(dataset)
+
+# JSON: a bare array of flat records with types preserved (age and
+# income are numbers).
+json_bytes = serialization.to_json_records_bytes(dataset)
+```
+
+These records exports are the BI/load surface: dashboards and pipelines
+import them directly. The manifest bytes from `to_json_bytes` remain the
+defect-replay surface — they add the seed, configuration and envelope a
+`replay` needs, which an import into a BI tool does not want.
+
+Two things to know about the schema:
+
+- The CSV header follows Persona's fields, so a change to those fields
+  changes the export, the way a `manifest_version` bump does.
+- CSV carries no types; JSON is the typed export. For CSV, downstream
+  tools type `age` and `income` as numbers per the header's documented
+  schema.
+
 ## Running the tests
 
 Backend (Python 3.11+, from the repository root):
