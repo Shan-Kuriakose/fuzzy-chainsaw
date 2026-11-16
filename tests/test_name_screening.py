@@ -101,13 +101,15 @@ def test_clean_dataset_emission_is_unchanged_by_screening(tmp_path):
 
 
 def test_updated_list_fails_replay_reemission_loudly(tmp_path):
-    from persona_engine import serialization
+    from persona_engine import GenerationConfig, PersonaGenerator, serialization
     from persona_engine.name_screening import ForbiddenNameError
 
-    dataset = _dataset_with("Elmore", "Vandermeer")
+    dataset = PersonaGenerator().generate_dataset(
+        GenerationConfig(), count=10, seed=5
+    )
     saved = serialization.to_json_bytes(dataset)
     replayed = serialization.replay(serialization.manifest_from_bytes(saved))
-    updated_list = _forbidden_list(tmp_path, "Elmore")
+    updated_list = _forbidden_list(tmp_path, dataset.personas[0].first_name)
 
     with pytest.raises(ForbiddenNameError):
         serialization.to_json_bytes(replayed, forbidden_values=updated_list)
