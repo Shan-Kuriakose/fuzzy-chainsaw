@@ -16,3 +16,21 @@ class Persona:
     gender: str
     geography: str
     income: int
+
+    def to_payload(self) -> dict:
+        """Return a JSON-safe payload of this persona for dataset rows."""
+
+        return {
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "age": self.age,
+            "gender": self.gender,
+            "geography": self.geography,
+            "income": self.income,
+        }
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "Persona":
+        """Rebuild a persona from its dataset-row payload."""
+
+        return cls(**payload)

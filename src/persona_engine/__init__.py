@@ -3,13 +3,23 @@
 Public API:
     Persona - the generated record
     GenerationConfig - the configured demographic ranges
-    PersonaGenerator - generates a persona per call
+    PersonaGenerator - generates a persona per call, or a reproducible dataset
+    GeneratedDataset - the frozen record of one seeded generation run
+    serialization - canonical bytes, manifests and replay for datasets
     name_pools - the committed synthetic name pools
 """
 
-from persona_engine import name_pools
+from persona_engine import name_pools, serialization
 from persona_engine.configuration import GenerationConfig
+from persona_engine.dataset import GeneratedDataset
 from persona_engine.generator import PersonaGenerator
 from persona_engine.persona import Persona
 
-__all__ = ["Persona", "GenerationConfig", "PersonaGenerator", "name_pools"]
+__all__ = [
+    "Persona",
+    "GenerationConfig",
+    "PersonaGenerator",
+    "GeneratedDataset",
+    "serialization",
+    "name_pools",
+]

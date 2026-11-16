@@ -42,3 +42,24 @@ class GenerationConfig:
             raise ValueError(f"{name} must contain at least one category")
         if len(set(categories)) != len(categories):
             raise ValueError(f"{name} must not contain duplicate categories")
+
+    def to_payload(self) -> dict:
+        """Return a JSON-safe payload of this configuration for the manifest."""
+
+        return {
+            "age_range": list(self.age_range),
+            "genders": list(self.genders),
+            "geographies": list(self.geographies),
+            "income_range": list(self.income_range),
+        }
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "GenerationConfig":
+        """Rebuild a validated configuration from its manifest payload."""
+
+        return cls(
+            age_range=tuple(payload["age_range"]),
+            genders=tuple(payload["genders"]),
+            geographies=tuple(payload["geographies"]),
+            income_range=tuple(payload["income_range"]),
+        )
