@@ -1,17 +1,20 @@
 """Serialization: the boundary where a GeneratedDataset becomes bytes.
 
 This module owns all format knowledge. Records stay pure; everything
-about JSON shape, canonical byte emission, manifest structure and
-replay lives here.
+about JSON shape, canonical byte emission, CSV export, exports for
+downstream tools, manifest structure and replay lives here.
 """
 
+import csv
+import io
 import json
 import platform
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 from persona_engine.configuration import GenerationConfig
 from persona_engine.dataset import GeneratedDataset
 from persona_engine.generator import PersonaGenerator
+from persona_engine.persona import Persona
 
 MANIFEST_VERSION = 1
 
@@ -50,6 +53,47 @@ def to_json_bytes(dataset: GeneratedDataset) -> bytes:
         separators=(",", ":"),
         ensure_ascii=True,
     ).encode("utf-8")
+
+
+def to_csv_bytes(dataset: GeneratedDataset) -> bytes:
+    """Emit the CSV records export: a header, then one row per persona.
+
+    The header lists Persona's fields, so even a zero-record dataset
+    carries the schema. Fields arrive as strings: CSV is typeless.
+    """
+
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer)
+    writer.writerow(_persona_field_names())
+    writer.writerows(_csv_rows(dataset.personas))
+    return buffer.getvalue().encode("utf-8")
+
+
+def to_json_records_bytes(dataset: GeneratedDataset) -> bytes:
+    """Emit the JSON records export: a bare array of flat persona records.
+
+    Unlike `to_json_bytes`, which writes the self-recording manifest,
+    this export is the load surface for downstream tools: pure records,
+    no seed, configuration or envelope, with the types preserved.
+    """
+
+    records = [persona.to_payload() for persona in dataset.personas]
+    return json.dumps(
+        records,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("utf-8")
+
+
+def _persona_field_names() -> list[str]:
+    return [field.name for field in fields(Persona)]
+
+
+def _csv_rows(personas) -> list[list[str]]:
+    return [
+        [str(payload[field_name]) for field_name in _persona_field_names()]
+        for payload in (persona.to_payload() for persona in personas)
+    ]
 
 
 def manifest_from_bytes(saved: bytes) -> DatasetManifest:
