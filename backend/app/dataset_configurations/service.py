@@ -28,6 +28,14 @@ from app.storage.repository import (
 )
 
 
+class InvalidDatasetConfiguration(ValueError):
+    """Refused: the engine will not generate a dataset from this configuration."""
+
+
+class DatasetConfigurationReplayRefused(ValueError):
+    """Refused: a saved manifest no longer replays to its own saved rows."""
+
+
 class DatasetConfigurationsService:
     """Save and reproduce named dataset configurations, scoped by team."""
 
@@ -59,7 +67,9 @@ class DatasetConfigurationsService:
         """Generate and store the dataset the configuration describes.
 
         Refuses loudly with ``DuplicateDatasetConfiguration`` when the
-        team already holds a configuration of that name.
+        team already holds a configuration of that name, and with
+        ``InvalidDatasetConfiguration`` when the engine refuses the
+        configuration itself.
         """
 
         dataset = self._generate_dataset(configuration, count, seed)
@@ -78,7 +88,7 @@ class DatasetConfigurationsService:
         """Regenerate the exact records the saved configuration produced."""
 
         manifest = self._manifest_of(team, name)
-        replayed = serialization.replay(manifest)
+        replayed = self._replayed(manifest)
         return {
             "seed": manifest.seed,
             "count": manifest.count,
@@ -97,6 +107,12 @@ class DatasetConfigurationsService:
     def _manifest_of(self, team: str, name: str) -> DatasetManifest:
         saved = self._required(self._repository.find_in_team(team, name))
         return serialization.manifest_from_bytes(saved.manifest)
+
+    def _replayed(self, manifest: DatasetManifest) -> GeneratedDataset:
+        try:
+            return serialization.replay(manifest)
+        except ValueError as refused:
+            raise DatasetConfigurationReplayRefused(str(refused)) from refused
 
     def _required(
         self, saved: SavedDatasetConfiguration | None
@@ -119,8 +135,13 @@ class DatasetConfigurationsService:
     def _generate_dataset(
         self, configuration: dict, count: int, seed: int
     ) -> GeneratedDataset:
-        return PersonaGenerator().generate_dataset(
-            GenerationConfig.from_payload(configuration),
-            count=count,
-            seed=seed,
-        )
+        try:
+            validated = GenerationConfig.from_payload(configuration)
+        except (ValueError, KeyError, TypeError) as refused:
+            raise InvalidDatasetConfiguration(str(refused)) from refused
+        try:
+            return PersonaGenerator().generate_dataset(
+                validated, count=count, seed=seed
+            )
+        except ValueError as refused:
+            raise InvalidDatasetConfiguration(str(refused)) from refused

@@ -8,13 +8,18 @@ from other teams' scope.
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.dataset_configurations.service import DatasetConfigurationsService
+from app.dataset_configurations.service import (
+    DatasetConfigurationReplayRefused,
+    DatasetConfigurationsService,
+    InvalidDatasetConfiguration,
+)
 from app.settings import Settings
 from app.storage.repository import DuplicateDatasetConfiguration
 
 SAVED_STATUS_CODE = 201
 CONFLICT_STATUS_CODE = 409
 NOT_FOUND_STATUS_CODE = 404
+UNPROCESSABLE_STATUS_CODE = 422
 
 
 class SaveDatasetConfigurationRequest(BaseModel):
@@ -24,6 +29,12 @@ class SaveDatasetConfigurationRequest(BaseModel):
     count: int = Field(ge=0)
     seed: int
     configuration: dict
+
+
+def _refusal_as_http(status_code: int, refused: Exception) -> HTTPException:
+    """Carry what a domain refusal said into the HTTP response."""
+
+    return HTTPException(status_code=status_code, detail=str(refused))
 
 
 def build_dataset_configurations_router(settings: Settings) -> APIRouter:
@@ -46,9 +57,9 @@ def build_dataset_configurations_router(settings: Settings) -> APIRouter:
                 team, request.name, request.configuration, request.count, request.seed
             )
         except DuplicateDatasetConfiguration as refused:
-            raise HTTPException(
-                status_code=CONFLICT_STATUS_CODE, detail=str(refused)
-            ) from refused
+            raise _refusal_as_http(CONFLICT_STATUS_CODE, refused) from refused
+        except InvalidDatasetConfiguration as refused:
+            raise _refusal_as_http(UNPROCESSABLE_STATUS_CODE, refused) from refused
         return {"name": request.name, "team": team}
 
     @router.get("/teams/{team}/dataset-configurations")
@@ -76,9 +87,9 @@ def _read_routes_of(
         try:
             return service.reproduce(team, name)
         except LookupError as missing:
-            raise HTTPException(
-                status_code=NOT_FOUND_STATUS_CODE, detail=str(missing)
-            ) from missing
+            raise _refusal_as_http(NOT_FOUND_STATUS_CODE, missing) from missing
+        except DatasetConfigurationReplayRefused as refused:
+            raise _refusal_as_http(CONFLICT_STATUS_CODE, refused) from refused
 
     @router.get("/teams/{team}/dataset-configurations/{name}")
     def read_dataset_configuration(
@@ -89,9 +100,7 @@ def _read_routes_of(
         try:
             return service.describe(team, name)
         except LookupError as missing:
-            raise HTTPException(
-                status_code=NOT_FOUND_STATUS_CODE, detail=str(missing)
-            ) from missing
+            raise _refusal_as_http(NOT_FOUND_STATUS_CODE, missing) from missing
 
 
 def _service_bound_to(settings: Settings):
