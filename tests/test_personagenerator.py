@@ -102,3 +102,35 @@ def test_invalid_ranges_raise_loudly(inverted_field):
 
     with pytest.raises(ValueError):
         GenerationConfig(**{inverted_field: invalid_bounds[inverted_field]})
+
+
+# Name-safeguards story, AC1: a generated name is a combination of the fixed
+# synthetic pools, verified against the compliance screen so no combination
+# can be tied to a real member identity.
+def test_generated_names_are_pool_combinations_only(tmp_path):
+    from persona_engine import GenerationConfig, PersonaGenerator, name_pools
+    from persona_engine.name_screening import (
+        ForbiddenValueList,
+        refuse_forbidden_name_components,
+    )
+
+    dataset = PersonaGenerator().generate_dataset(
+        GenerationConfig(), count=200, seed=19
+    )
+    pool_combinations = {
+        (first, last)
+        for first in name_pools.FIRST_NAMES
+        for last in name_pools.LAST_NAMES
+    }
+
+    for persona in dataset.personas:
+        assert (persona.first_name, persona.last_name) in pool_combinations
+
+    compliance_file = tmp_path / "compliance-forbidden-values.txt"
+    # Values no committed pool contains: real-identity-shaped entries a
+    # leaked name would collide with, all obviously synthetic for tests.
+    compliance_file.write_text("Norbert\nGertrude\n", encoding="utf-8")
+
+    refuse_forbidden_name_components(
+        dataset.personas, ForbiddenValueList.from_file(compliance_file)
+    )
