@@ -1,0 +1,122 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Lint the python code with pyflakes
+        run: |
+          pip install pyflakes
+          pyflakes backend/app backend/tests
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Lint the frontend types with tsc
+        run: |
+          npm install --no-audit --no-fund
+          npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run the backend suite under the 80% coverage gate
+        run: |
+          pip install --no-cache-dir -e "./backend[test]"
+          pytest backend/tests --cov=app --cov-report=term-missing \
+            --cov-fail-under=80 -p no:cacheprovider
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run the frontend suite under the 80% coverage gate
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund @vitest/coverage-v8@^2.1.8
+          npx vitest run --coverage \
+            --coverage.thresholds.lines=80 --coverage.thresholds.statements=80
+
+  build:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the application image
+        run: docker build --tag "$IMAGE_NAME:${{ github.sha }}" .
+
+      - name: Push the application image (main only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          docker login ghcr.io \
+            --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}"
+          docker push "$IMAGE_NAME:${{ github.sha }}"
+          docker tag "$IMAGE_NAME:${{ github.sha }}" "$IMAGE_NAME:latest"
+          docker push "$IMAGE_NAME:latest"
+
+  deploy:
+    needs: [build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to staging
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+        run: |
+          if [ -z "$STAGING_HOST" ] || [ -z "$STAGING_SSH_USER" ] || [ -z "$STAGING_SSH_KEY" ]; then
+            echo "Staging deploy credentials are not configured; refusing to fake a deployment" >&2
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$STAGING_SSH_KEY" > ~/.ssh/staging_key
+          chmod 600 ~/.ssh/staging_key
+          ssh -i ~/.ssh/staging_key -o StrictHostKeyChecking=accept-new \
+            "$STAGING_SSH_USER@$STAGING_HOST" \
+            "docker compose -f /srv/fuzzy-chain-saw/docker-compose.yml pull && \
+             docker compose -f /srv/fuzzy-chain-saw/docker-compose.yml up -d"
+
+  smoke:
+    needs: [deploy]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Smoke-check the staging root URL
+        env:
+          STAGING_ROOT_URL: ${{ vars.STAGING_ROOT_URL }}
+        run: |
+          if [ -z "$STAGING_ROOT_URL" ]; then
+            echo "STAGING_ROOT_URL is not configured; refusing to fake a passing smoke check" >&2
+            exit 1
+          fi
+          status="$(curl -sS -o /tmp/staging-home.html -w '%{http_code}' "$STAGING_ROOT_URL")"
+          echo "Staging root URL answered HTTP $status"
+          test "$status" = "200"
+          grep -q "Fuzzy Chain Saw" /tmp/staging-home.html
