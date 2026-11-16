@@ -67,15 +67,46 @@ def manifest_from_bytes(saved: bytes) -> DatasetManifest:
 
 
 def replay(manifest: DatasetManifest) -> GeneratedDataset:
-    """Regenerate the dataset a saved manifest was built from."""
+    """Regenerate the dataset a saved manifest was built from.
+
+    The regenerated records are verified against the rows the manifest
+    recorded, so a divergent replay (another runtime, stale pools, a
+    tampered artifact) fails loudly instead of returning records that
+    are not the saved ones.
+    """
 
     _refuse_unsupported_manifest(manifest)
     configuration = GenerationConfig.from_payload(manifest.configuration)
-    return PersonaGenerator().generate_dataset(
+    regenerated = PersonaGenerator().generate_dataset(
         configuration,
         count=manifest.count,
         seed=manifest.seed,
     )
+    _verify_rows_match_the_saved_ones(manifest, regenerated)
+    return regenerated
+
+
+def _verify_rows_match_the_saved_ones(
+    manifest: DatasetManifest,
+    regenerated: GeneratedDataset,
+) -> None:
+    replayed_rows = [persona.to_payload() for persona in regenerated.personas]
+    saved_rows = list(manifest.personas)
+    if replayed_rows == saved_rows:
+        return
+    raise ValueError(
+        "replay produced records that are not the saved ones: first "
+        f"divergence at row {_first_divergent_index(saved_rows, replayed_rows)}; "
+        f"the manifest came from Python {manifest.python_version} and is "
+        f"replaying under Python {platform.python_version()}"
+    )
+
+
+def _first_divergent_index(saved: list, replayed: list) -> int:
+    for row_number, (saved_row, replayed_row) in enumerate(zip(saved, replayed)):
+        if saved_row != replayed_row:
+            return row_number
+    return min(len(saved), len(replayed))
 
 
 def _refuse_unsupported_manifest(manifest: DatasetManifest) -> None:

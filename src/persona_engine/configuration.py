@@ -4,9 +4,14 @@ from dataclasses import dataclass, field
 from typing import Sequence
 
 
-@dataclass
+@dataclass(frozen=True)
 class GenerationConfig:
-    """The demographic ranges every generated persona is drawn from."""
+    """The demographic ranges every generated persona is drawn from.
+
+    The configuration is immutable: it is recorded inside a dataset as the
+    provenance of a run, so a mutable configuration could silently stop
+    being the one that produced the rows.
+    """
 
     age_range: tuple[int, int] = (18, 85)
     genders: Sequence[str] = ("Female", "Male", "Non-Binary")
@@ -19,6 +24,16 @@ class GenerationConfig:
     income_range: tuple[int, int] = (20_000, 150_000)
 
     def __post_init__(self):
+        # Frozen dataclasses reject normal assignment, so constructor-time
+        # sequence normalization must go around the freeze. Callers may pass
+        # lists; the config keeps only tuples they cannot reach back into.
+        for attribute in (
+            "age_range",
+            "income_range",
+            "genders",
+            "geographies",
+        ):
+            object.__setattr__(self, attribute, tuple(getattr(self, attribute)))
         self._validate_range("age_range", self.age_range)
         self._validate_range("income_range", self.income_range)
         self._validate_categories("genders", self.genders)

@@ -49,9 +49,13 @@ configuration reproduces the failing records exactly.
 
 Byte identity holds per Python runtime: `random.Random`'s output is stable
 within an interpreter version but is not guaranteed across Python versions.
-The manifest records `python_version` and `manifest_version`, so a
-cross-runtime replay is visibly different rather than silently resolved, and
-a manifest written by an unsupported manifest version is refused loudly.
+`replay` therefore verifies the regenerated records against the rows the
+manifest itself recorded and refuses loudly when they diverge — a
+cross-runtime mismatch is an exception at the call site, never a silently
+different dataset. The manifest carries the `python_version` and
+`manifest_version` of the run that wrote it, so the error message names both
+runtimes, and a manifest of an unsupported manifest version is refused
+outright.
 `replay` also pins the variable consumption order: generation draws persona
 attributes in a fixed sequence, so adding or reordering an attribute in a
 future release changes every dataset and is announced by bumping

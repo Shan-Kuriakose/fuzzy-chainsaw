@@ -40,3 +40,45 @@ def test_replay_refuses_a_manifest_from_an_unsupported_version():
 
     with pytest.raises(ValueError):
         serialization.replay(stale_manifest)
+
+
+def test_replay_refuses_records_that_diverge_from_the_saved_rows():
+    from persona_engine import serialization
+
+    manifest = serialization.manifest_from_bytes(
+        serialization.to_json_bytes(_seeded_dataset())
+    )
+    corrupted_rows = list(manifest.personas)
+    corrupted_rows[0] = {**corrupted_rows[0], "first_name": "Tampered"}
+    cross_runtime_manifest = serialization.DatasetManifest(
+        seed=manifest.seed,
+        count=manifest.count,
+        manifest_version=manifest.manifest_version,
+        python_version=manifest.python_version,
+        configuration=manifest.configuration,
+        personas=tuple(corrupted_rows),
+    )
+
+    with pytest.raises(ValueError, match="not the saved ones"):
+        serialization.replay(cross_runtime_manifest)
+
+
+def test_replay_names_the_two_runtimes_in_a_divergence_error():
+    from persona_engine import serialization
+
+    manifest = serialization.manifest_from_bytes(
+        serialization.to_json_bytes(_seeded_dataset())
+    )
+    corrupted_rows = list(manifest.personas)
+    corrupted_rows[0] = {**corrupted_rows[0], "income": corrupted_rows[0]["income"] + 1}
+    cross_runtime_manifest = serialization.DatasetManifest(
+        seed=manifest.seed,
+        count=manifest.count,
+        manifest_version=manifest.manifest_version,
+        python_version="1.2.3",
+        configuration=manifest.configuration,
+        personas=tuple(corrupted_rows),
+    )
+
+    with pytest.raises(ValueError, match="1.2.3"):
+        serialization.replay(cross_runtime_manifest)
