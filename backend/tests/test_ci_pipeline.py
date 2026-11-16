@@ -4,6 +4,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 CI_WORKFLOW = REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml"
 
+PLACEHOLDER_PAGE = "fuzzy chain saw"
+
 
 def test_merge_to_main_builds_tests_and_deploys_to_staging():
     assert CI_WORKFLOW.exists(), (
@@ -12,11 +14,16 @@ def test_merge_to_main_builds_tests_and_deploys_to_staging():
 
     workflow = CI_WORKFLOW.read_text().lower()
 
-    assert "main" in workflow, "CI does not run on merges to main"
+    assert "refs/heads/main" in workflow, "CI does not run on a merge to main"
     assert "pytest" in workflow, "CI does not run the backend test suite"
-    assert "coverage" in workflow, "CI does not enforce the coverage gate"
-    assert "deploy" in workflow, "CI does not deploy the app skeleton"
+    assert "coverage" in workflow, "CI does not enforce the test coverage gate"
+    assert "vitest" in workflow, "CI does not run the frontend test suite"
+    assert "docker build" in workflow, "CI does not build the application image"
     assert "staging" in workflow, "CI does not deploy to a staging environment"
+    assert "needs: [build]" in workflow, "The deploy does not run after the image build"
+    assert "refusing" in workflow, (
+        "CI fakes a deploy when the staging configuration is missing"
+    )
 
 
 def test_ci_smoke_checks_the_staging_root_url_after_deploy():
@@ -27,4 +34,9 @@ def test_ci_smoke_checks_the_staging_root_url_after_deploy():
     workflow = CI_WORKFLOW.read_text().lower()
 
     assert "smoke" in workflow, "CI lacks a post-deploy smoke check step"
+    assert "curl" in workflow, "The smoke check does not fetch the staging root URL"
+    assert "needs: [deploy]" in workflow, "The smoke check does not run after the deploy"
     assert "200" in workflow, "Smoke check does not assert a successful (200) response"
+    assert PLACEHOLDER_PAGE in workflow, (
+        "The smoke check does not verify the placeholder home page rendered"
+    )
