@@ -54,4 +54,28 @@ describe('DatasetConfigurationsPage', () => {
 
     expect(await axe(container)).toHaveNoViolations()
   })
+
+  it('keeps the reference-population override notice accessible', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(JSON.stringify(LOADED_LIST), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
+
+    const { default: DatasetConfigurationsPage } = await vi.importActual(
+      './DatasetConfigurationsPage',
+    )
+
+    const { container, getByLabelText } = render(<DatasetConfigurationsPage />)
+
+    fireEvent.change(getByLabelText('Age minimum'), { target: { value: '30' } })
+
+    expect(
+      screen.getByText(/no longer reflects the built-in reference population/i),
+    ).toBeInTheDocument()
+    expect(await axe(container)).toHaveNoViolations()
+  })
 })

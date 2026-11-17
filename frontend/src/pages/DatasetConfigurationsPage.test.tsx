@@ -226,6 +226,24 @@ describe('DatasetConfigurationsPage', () => {
     expect(fetchCalls).toHaveLength(0)
   })
 
+  it('tells the user when an override leaves the built-in reference population', () => {
+    render(<DatasetConfigurationsPage />)
+
+    typeInto('Age minimum', '30')
+
+    expect(
+      screen.getByText(/no longer reflects the built-in reference population/i),
+    ).toBeInTheDocument()
+  })
+
+  it('does not tell untouched defaults they left the reference population', () => {
+    render(<DatasetConfigurationsPage />)
+
+    expect(
+      screen.queryByText(/no longer reflects the built-in reference population/i),
+    ).not.toBeInTheDocument()
+  })
+
   it('announces a team name longer than the API accepts instead of sending it', async () => {
     respond = () => {
       throw new Error('no request should reach the backend')

@@ -63,6 +63,44 @@ def test_replay_refuses_records_that_diverge_from_the_saved_rows():
         serialization.replay(cross_runtime_manifest)
 
 
+def test_manifests_are_written_as_version_2_after_calibration():
+    from persona_engine import serialization
+
+    assert serialization.MANIFEST_VERSION == 2
+
+    manifest = serialization.manifest_from_bytes(
+        serialization.to_json_bytes(_seeded_dataset())
+    )
+
+    assert manifest.manifest_version == 2
+
+
+def test_replay_refuses_a_version_1_manifest_naming_both_versions():
+    from persona_engine import serialization
+
+    version_one_manifest = serialization.DatasetManifest(
+        seed=11,
+        count=5,
+        manifest_version=1,
+        python_version="0.0.0",
+        configuration=_seeded_dataset().configuration.to_payload(),
+        personas=(),
+    )
+
+    with pytest.raises(ValueError) as refusal:
+        serialization.replay(version_one_manifest)
+
+    message = str(refusal.value)
+    assert "manifest version 1" in message, (
+        "the refusal must name the stale version it refuses"
+    )
+    assert "version 2" in message, (
+        "the refusal must name the version the engine writes, so a "
+        "version-1 manifest fails loudly instead of recreating "
+        "differently shaped records silently"
+    )
+
+
 def test_replay_names_the_two_runtimes_in_a_divergence_error():
     from persona_engine import serialization
 
